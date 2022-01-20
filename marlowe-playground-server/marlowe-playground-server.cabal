@@ -32,6 +32,8 @@ library
         Example
         Swap
         ZeroCouponBond
+        Options
+        CoveredCall
     -- Include 'contracts' so haskell.nix knows to include the files that we embed with TH
     hs-source-dirs:
         src
@@ -92,6 +94,7 @@ executable marlowe-playground-server
         CouponBondGuaranteed
         ZeroCouponBond
         Swap
+        Options
         CoveredCall
         ContractForDifferences
         ContractForDifferencesWithOracle
