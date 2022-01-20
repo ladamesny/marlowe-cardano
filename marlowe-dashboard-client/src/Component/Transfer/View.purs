@@ -1,6 +1,7 @@
 module Component.Transfer.View (transfer) where
 
 import Prologue
+
 import Component.Amount (amount)
 import Component.Avatar.Types (Size(..)) as Avatar
 import Component.Avatar.View (avatar)
@@ -14,6 +15,7 @@ import Component.Transfer.Types (Participant, Termini(..), Transfer)
 import Data.Maybe (fromMaybe)
 import Data.String (Pattern(..))
 import Data.String.Extra (capitalize, endsWith)
+import Data.WalletNickname as WN
 import Halogen.Css (classNames)
 import Halogen.HTML (HTML, span, text)
 import Marlowe.Semantics (Party(..))
@@ -40,18 +42,19 @@ account :: forall w i. Party -> Participant -> String -> HTML w i
 account party { nickname, isCurrentUser } accountTypeLabel =
   row Row.Cramped [ "items-center" ]
     [ avatar
-        { nickname: fromMaybe defaultName nickname
+        { nickname: fromMaybe defaultName $ WN.toString <$> nickname
         , background: [ "bg-gradient-to-r", "from-purple", "to-lightpurple" ]
         , size: Avatar.Small
         }
     , span [ classNames [ "text-xs" ] ]
         [ text
             $ capitalize
-            $ ( case party of
+            $
+              ( case party of
                   PK pk -> accountTypeLabel <> " of " <> pk
                   Role role -> posessive role <> " " <> accountTypeLabel
               )
-            <> if isCurrentUser then " (you)" else ""
+                <> if isCurrentUser then " (you)" else ""
         ]
     ]
   where

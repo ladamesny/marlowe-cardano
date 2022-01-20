@@ -3,9 +3,9 @@
 module.exports = {
   purge: [
     "src/**/*.purs",
-    "web-common/**/*.purs",
-    "web-common-marlowe/**/*.purs",
-    "web-common-playground/**/*.purs",
+    process.env.WEB_COMMON_SRC + "/**/*.purs",
+    process.env.WEB_COMMON_MARLOWE_SRC + "/**/*.purs",
+    process.env.WEB_COMMON_PLAYGROUND_SRC + "/**/*.purs",
   ],
   darkMode: false, // or 'media' or 'class'
   theme: {
@@ -59,7 +59,7 @@ module.exports = {
       lg: "0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.04)",
       xl: "0 25px 50px -12px rgba(0,0,0,0.25)",
       deep: "0 2.5px 5px 0 rgba(0, 0, 0, 0.22)",
-      flat: "0 0 20px 0 rgba(0, 0, 0, 0.3)"
+      flat: "0 0 20px 0 rgba(0, 0, 0, 0.3)",
     },
     extend: {
       gridTemplateColumns: {

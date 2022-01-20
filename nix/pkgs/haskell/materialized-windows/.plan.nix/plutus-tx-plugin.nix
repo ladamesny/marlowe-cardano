@@ -47,6 +47,7 @@
           (hsPkgs."text" or (errorHandler.buildDepError "text"))
           (hsPkgs."transformers" or (errorHandler.buildDepError "transformers"))
           (hsPkgs."plutus-tx" or (errorHandler.buildDepError "plutus-tx"))
+          (hsPkgs."array" or (errorHandler.buildDepError "array"))
           ] ++ (if flags.use-ghc-stub
           then [
             (hsPkgs."plutus-ghc-stub" or (errorHandler.buildDepError "plutus-ghc-stub"))
@@ -83,16 +84,15 @@
             (hsPkgs."plutus-tx-plugin" or (errorHandler.buildDepError "plutus-tx-plugin"))
             (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
             (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
-            (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
-            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
             (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
             (hsPkgs."tasty" or (errorHandler.buildDepError "tasty"))
-            (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
             (hsPkgs."tasty-hedgehog" or (errorHandler.buildDepError "tasty-hedgehog"))
+            (hsPkgs."tasty-hunit" or (errorHandler.buildDepError "tasty-hunit"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
             (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."ghc-prim" or (errorHandler.buildDepError "ghc-prim"))
+            (hsPkgs."containers" or (errorHandler.buildDepError "containers"))
             ];
           buildable = if flags.use-ghc-stub then false else true;
           modules = [
@@ -110,6 +110,7 @@
             "Plugin/Profiling/Spec"
             "Plugin/Typeclasses/Spec"
             "Plugin/Typeclasses/Lib"
+            "Plugin/Coverage/Spec"
             "Plugin/Lib"
             "StdLib/Spec"
             "TH/Spec"
@@ -123,11 +124,11 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "16";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       }) // {
-      url = "16";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       };

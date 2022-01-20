@@ -14,47 +14,47 @@
 
 module GameModel where
 
-import           Control.Applicative
-import           Control.Lens                       hiding (elements)
-import           Control.Monad
-import           System.Random
+import Control.Applicative
+import Control.Lens hiding (elements)
+import Control.Monad
+import System.Random
 
 -- START import Log
-import           Control.Monad.Freer.Extras.Log     (LogLevel (..))
+import Control.Monad.Freer.Extras.Log (LogLevel (..))
 -- END import Log
 
-import           Data.Maybe
-import           Test.QuickCheck
+import Data.Maybe
+import Test.QuickCheck
 
 -- START import Contract.Test
-import           Plutus.Contract.Test
+import Plutus.Contract.Test
 -- END import Contract.Test
 
 -- START import ContractModel
-import           Plutus.Contract.Test.ContractModel
+import Plutus.Contract.Test.ContractModel
 -- END import ContractModel
 
-import           Plutus.Contract.Test.ContractModel as ContractModel
+import Plutus.Contract.Test.ContractModel as ContractModel
 
 -- START import Game
-import           Plutus.Contracts.GameStateMachine  as G
+import Plutus.Contracts.GameStateMachine as G
 -- END import Game
 
 -- START import Ada
-import qualified Ledger.Ada                         as Ada
-import           Ledger.Value
+import qualified Ledger.Ada as Ada
+import Ledger.Value
 -- END import Ada
 
 -- START import Scripts
-import qualified Ledger.Typed.Scripts               as Scripts
+import qualified Ledger.Typed.Scripts as Scripts
 -- END import Scripts
 
 -- START import Emulator
-import           Plutus.Trace.Emulator              as Trace
+import Plutus.Trace.Emulator as Trace
 -- END import Emulator
 
 -- START import Contract.Security
-import           Plutus.Contract.Secrets
+import Plutus.Contract.Secrets
 -- END import Contract.Security
 
 
@@ -94,6 +94,10 @@ instance ContractModel GameModel where
         , _currentSecret = ""
         }
 -- END initialState
+
+-- START initialHandleSpecs
+    initialHandleSpecs = [ ContractInstanceSpec (WalletKey w) w G.contract | w <- wallets ]
+-- END initialHandleSpecs
 
 -- START perform
     perform handle s cmd = case cmd of
@@ -185,21 +189,16 @@ instance ContractModel GameModel where
     monitoring _ _ = id
 -- END monitoring
 
--- START instanceSpec
-instanceSpec :: [ContractInstanceSpec GameModel]
-instanceSpec = [ ContractInstanceSpec (WalletKey w) w G.contract | w <- wallets ]
--- END instanceSpec
-
 -- START prop_Game
 prop_Game :: Actions GameModel -> Property
-prop_Game actions = propRunActions_ instanceSpec actions
+prop_Game actions = propRunActions_ actions
 -- END prop_Game
 
 -- START propGame'
 propGame' :: LogLevel -> Actions GameModel -> Property
 propGame' l s = propRunActionsWithOptions
                     (set minLogLevel l defaultCheckOptions)
-                    instanceSpec
+                    defaultCoverageOptions
                     (\ _ -> pure True)
                     s
 -- END propGame'
@@ -224,7 +223,7 @@ guesses :: [String]
 guesses = ["hello", "secret", "hunter2", "*******"]
 
 -- START delay
-delay :: Int -> EmulatorTrace ()
+delay :: Int -> EmulatorTraceNoStartContract ()
 delay n = void $ waitNSlots (fromIntegral n)
 -- END delay
 
@@ -383,7 +382,7 @@ v1_model = ()
     precondition s _             = True
 -- END precondition v1
 
-    perform :: HandleFun GameModel -> ModelState GameModel -> Action GameModel -> EmulatorTrace ()
+    perform :: HandleFun GameModel -> ModelState GameModel -> Action GameModel -> EmulatorTraceNoStartContract ()
 -- START perform v1
     perform handle s cmd = case cmd of
         Lock w new val -> do
@@ -565,7 +564,7 @@ typeSignatures = id
 -- END precondition type
  precondition = ContractModel.precondition
 -- START perform type
- perform :: HandleFun state -> ModelState state -> Action state -> EmulatorTrace ()
+ perform :: HandleFun state -> ModelState state -> Action state -> EmulatorTraceNoStartContract ()
 -- END perform type
  perform = ContractModel.perform
 -- START shrinkAction type

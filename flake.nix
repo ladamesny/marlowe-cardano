@@ -62,15 +62,11 @@
       flake = false;
     };
     plutus-apps = {
-      url = "github:input-output-hk/plutus-apps";
+      url = "github:input-output-hk/plutus-apps?rev=88d3ec7634d3aa80db8569cc6caa2f94434abf7e";
       flake = false;
     };
     pre-commit-hooks-nix = {
       url = "github:cachix/pre-commit-hooks.nix";
-      flake = false;
-    };
-    spago2nix = {
-      url = "github:justinwoo/spago2nix";
       flake = false;
     };
     sphinxcontrib-haddock = {
@@ -80,6 +76,10 @@
     stackage-nix = {
       url = "github:input-output-hk/stackage.nix";
       flake = false;
+    };
+    web-common = {
+      url = "github:input-output-hk/purescript-web-common";
+      flake = true;
     };
   };
 

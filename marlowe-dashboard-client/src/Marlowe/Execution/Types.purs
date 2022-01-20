@@ -9,10 +9,25 @@ module Marlowe.Execution.Types
   ) where
 
 import Prologue
-import Data.BigInteger (BigInteger)
+
+import Data.BigInt.Argonaut (BigInt)
 import Data.List (List)
 import Data.Map (Map)
-import Marlowe.Semantics (AccountId, Bound, ChoiceId, ChosenNum, Contract, Observation, Party, Payment, Slot, Token, TransactionInput, ValueId, Accounts)
+import Marlowe.Semantics
+  ( AccountId
+  , Accounts
+  , Bound
+  , ChoiceId
+  , ChosenNum
+  , Contract
+  , Observation
+  , Party
+  , Payment
+  , Slot
+  , Token
+  , TransactionInput
+  , ValueId
+  )
 import Marlowe.Semantics (State) as Semantic
 
 -- The execution state represents the status of a Marlowe contract synced with the PAB.
@@ -24,38 +39,38 @@ import Marlowe.Semantics (State) as Semantic
 -- At a later point, we might want to refactor the execution state to live outside the component
 -- state, as a global state (using https://github.com/thomashoneyman/purescript-halogen-store),
 -- and minimize the amount of cached information.
-type State
-  = { semanticState :: Semantic.State
-    , contract :: Contract
-    , history :: Array PastState
-    , mPendingTimeouts :: Maybe PendingTimeouts
-    , mNextTimeout :: Maybe Slot
-    }
+type State =
+  { semanticState :: Semantic.State
+  , contract :: Contract
+  , history :: Array PastState
+  , mPendingTimeouts :: Maybe PendingTimeouts
+  , mNextTimeout :: Maybe Slot
+  }
 
-type TimeoutInfo
-  = { slot :: Slot
-    , missedActions :: Array NamedAction
-    }
+type TimeoutInfo =
+  { slot :: Slot
+  , missedActions :: Array NamedAction
+  }
 
 data PastAction
   = InputAction
   | TimeoutAction TimeoutInfo
 
-type PastState
-  = { balancesAtStart :: Accounts
-    , action :: PastAction
-    , txInput :: TransactionInput
-    , balancesAtEnd :: Accounts
-    , resultingPayments :: List Payment
-    }
+type PastState =
+  { balancesAtStart :: Accounts
+  , action :: PastAction
+  , txInput :: TransactionInput
+  , balancesAtEnd :: Accounts
+  , resultingPayments :: List Payment
+  }
 
 -- The contract and state usually goes together and allows you to speficy the "overall state"
 -- of a contract.
 -- TODO: see if we can come up with a better name and maybe move it to Marlowe.Semantic
-type ContractAndState
-  = { contract :: Contract
-    , state :: Semantic.State
-    }
+type ContractAndState =
+  { contract :: Contract
+  , state :: Semantic.State
+  }
 
 -- This represents the timeouts that haven't been applied to the contract. When a step of a
 -- contract has timed out, nothing happens until the next TransactionInput. This could be an
@@ -65,16 +80,16 @@ type ContractAndState
 -- allows us to extract the NamedActions that need to be applied next. Also, we store the timeouts
 -- as an Array because it is possible that multiple continuations have timedout before we advance
 -- the contract.
-type PendingTimeouts
-  = { continuation :: ContractAndState
-    , timeouts :: Array TimeoutInfo
-    }
+type PendingTimeouts =
+  { continuation :: ContractAndState
+  , timeouts :: Array TimeoutInfo
+  }
 
 -- Represents the possible buttons that can be displayed on a contract step card
 data NamedAction
   -- Equivalent to Semantics.Action(Deposit)
   -- Creates IDeposit
-  = MakeDeposit AccountId Party Token BigInteger
+  = MakeDeposit AccountId Party Token BigInt
   -- Equivalent to Semantics.Action(Choice) but has ChosenNum since it is a stateful element that
   -- stores the users choice
   -- Creates IChoice
@@ -86,7 +101,7 @@ data NamedAction
   -- we work out the details of what will happen when this occurs, currently we are interested in
   -- any payments that will be made and new bindings that will be evaluated
   -- Creates empty tx
-  | Evaluate { payments :: Array Payment, bindings :: Map ValueId BigInteger }
+  | Evaluate { payments :: Array Payment, bindings :: Map ValueId BigInt }
   -- A special case of Evaluate where the only way the Contract can progress is to apply an empty
   -- transaction which results in the contract being closed
   -- Creates empty tx

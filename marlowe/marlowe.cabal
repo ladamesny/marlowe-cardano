@@ -58,10 +58,11 @@ library
     mtl,
     newtype-generics,
     template-haskell -any,
-    plutus-chain-index -any,
+    plutus-chain-index-core -any,
     plutus-contract -any,
     plutus-core,
     plutus-ledger,
+    plutus-ledger-constraints,
     plutus-tx -any,
     plutus-use-cases,
     text,
@@ -77,6 +78,8 @@ library
     Language.Marlowe.Deserialisation
     Language.Marlowe.Extended
     Language.Marlowe.Semantics
+    Language.Marlowe.SemanticsDeserialisation
+    Language.Marlowe.SemanticsSerialisation
     Language.Marlowe.SemanticsTypes
     Language.Marlowe.Client
     Language.Marlowe.Util
@@ -112,9 +115,10 @@ test-suite marlowe-test-long-running
         text -any,
         serialise,
         cborg,
-        plutus-chain-index -any,
+        plutus-chain-index-core -any,
         plutus-contract -any,
         plutus-ledger -any,
+        plutus-pab-executables -any,
         marlowe,
         plutus-tx -any,
         QuickCheck,
@@ -158,9 +162,12 @@ test-suite marlowe-test
         text -any,
         serialise,
         cborg,
-        plutus-chain-index -any,
+        plutus-chain-index-core -any,
         plutus-contract -any,
         plutus-ledger -any,
+        plutus-ledger-api -any,
+        plutus-ledger-constraints -any,
+        plutus-pab-executables -any,
         marlowe,
         plutus-tx -any,
         QuickCheck,
@@ -197,6 +204,40 @@ executable marlowe-pab
     plutus-contract -any,
     plutus-ledger -any,
     plutus-pab -any,
+    plutus-pab-executables -any,
+    plutus-tx -any,
+    purescript-bridge -any,
+    marlowe -any,
+    openapi3,
+    uuid -any
+  if !(impl(ghcjs) || os(ghcjs))
+    build-depends: plutus-tx-plugin -any
+
+-- | The PAB purescript generation specialised to the marlowe contract(s)
+executable marlowe-pab-setup
+  import: lang
+  main-is: Setup.hs
+  hs-source-dirs: pab
+  ghc-options:
+    -threaded
+  other-modules:
+    SetupParser
+    MarloweContract
+  build-depends:
+    base >= 4.9 && < 5,
+    aeson -any,
+    containers -any,
+    data-default -any,
+    freer-simple -any,
+    iohk-monitoring -any,
+    monad-logger -any,
+    prettyprinter -any,
+    freer-extras -any,
+    optparse-applicative -any,
+    plutus-contract -any,
+    plutus-ledger -any,
+    plutus-pab -any,
+    plutus-pab-executables -any,
     plutus-tx -any,
     purescript-bridge -any,
     marlowe -any,

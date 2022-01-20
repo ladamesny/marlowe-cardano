@@ -68,25 +68,23 @@ pkgs/.stack
 *.code-workspace
 .*.sw*
 
-# Frontend generated files (NPM/Yarn, Spago, generated PS, etc.)
+# Frontend files (NPM/Yarn, Spago, etc.)
 # N.B. officially we use NPM; ignoring Yarn files allows the local use of Yarn for those that want
-**/generated
-**/generated/
 **/generated-docs/
 **/node_modules/
 **/output/
 **/yarn-error.log
 **/yarn.lock
 **/.psci_modules/
-**/.psc-package/
-**/.psc-package2nix/
 **/.spago/
 **/.spago2nix/
+.psa-stash
 
 # Backend config files
 marlowe-playground-server/playground.yaml
 plutus-playground-server/playground.yaml
 plutus-pab/plutus-pab.yaml
+marlowe-dashboard-server/config.json
 
 # Misc
 .history/

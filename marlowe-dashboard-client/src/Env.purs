@@ -1,22 +1,25 @@
 module Env
-  ( Env
-  , DataProvider(..)
+  ( Env(..)
   , WebSocketManager
   ) where
 
-import Prologue
+import Capability.PlutusApps.MarloweApp.Types (class HasMarloweAppEndpointMutex)
 import Capability.PlutusApps.MarloweApp.Types as MarloweApp
+import Data.Newtype (class Newtype)
 import Effect.AVar (AVar)
 import Halogen (SubscriptionId)
-import Plutus.PAB.Webserver (SPParams_)
-import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient)
-import Servant.PureScript.Settings (SPSettings_)
-import Types (CombinedWSStreamToServer)
+import Marlowe as Marlowe
+import Plutus.PAB.Webserver (SPSettings_)
+import Plutus.PAB.Webserver.Types
+  ( CombinedWSStreamToClient
+  , CombinedWSStreamToServer
+  )
 import WebSocket.Support (WebSocketManager) as WS
 
 -- Application enviroment configuration
-type Env
-  = { ajaxSettings :: SPSettings_ SPParams_
+newtype Env =
+  Env
+    { ajaxSettings :: SPSettings_
     -- This AVar helps to solve a concurrency problem in the contract carousel subscriptions.
     -- See notes in [Contract.State(unsubscribeFromSelectCenteredStep)]
     -- There are two reasons why this is stored in the `Env` rather than the Contract.State:
@@ -28,19 +31,16 @@ type Env
     , contractStepCarouselSubscription :: AVar SubscriptionId
     -- See note on Capability.PlutusApps.MarloweApp.Types
     , marloweAppEndpointMutex :: MarloweApp.EndpointMutex
-    , dataProvider :: DataProvider
     , wsManager :: WebSocketManager
     }
 
+derive instance newtypeEnv :: Newtype Env _
+
+instance marloweHasSPSettingsEnv :: Marlowe.HasSPSettings Env where
+  spSettings (Env { ajaxSettings }) = ajaxSettings
+
+instance hasMarloweAppEndpointMutexEnv :: HasMarloweAppEndpointMutex Env where
+  marloweAppEndpointMutex (Env e) = e.marloweAppEndpointMutex
+
 type WebSocketManager
   = WS.WebSocketManager CombinedWSStreamToClient CombinedWSStreamToServer
-
--- The frontend app can be run with two different data providers: the Marlowe PAB (the PAB bundled
--- up with the Marlowe Plutus contracts in one executable), or with the browser's localStorage
--- giving the local illusion of persistent and shared data. How this env property is set determines
--- the implementation of the functions in the ManageMarlowe capability monad.
-data DataProvider
-  = MarlowePAB
-  | LocalStorage
-
-derive instance eqDataProvider :: Eq DataProvider

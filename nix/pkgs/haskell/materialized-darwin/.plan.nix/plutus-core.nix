@@ -111,6 +111,7 @@
         modules = [
           "PlutusCore/Analysis/Definitions"
           "PlutusCore/Constant/Function"
+          "PlutusCore/Constant/Kinded"
           "PlutusCore/Constant/Meaning"
           "PlutusCore/Constant/Typed"
           "PlutusCore/Core/Instance"
@@ -301,7 +302,7 @@
           "Crypto"
           "Data/ByteString/Hash"
           "Data/SatInt"
-          "Data/Text/Prettyprint/Doc/Custom"
+          "Prettyprinter/Custom"
           "ErrorCode"
           "PlcTestUtils"
           "PlutusPrelude"
@@ -397,18 +398,10 @@
           depends = [
             (hsPkgs."base" or (errorHandler.buildDepError "base"))
             (hsPkgs."cassava" or (errorHandler.buildDepError "cassava"))
-            (hsPkgs."flat" or (errorHandler.buildDepError "flat"))
-            (hsPkgs."deepseq" or (errorHandler.buildDepError "deepseq"))
             (hsPkgs."integer-gmp" or (errorHandler.buildDepError "integer-gmp"))
-            (hsPkgs."plutus-core" or (errorHandler.buildDepError "plutus-core"))
-            (hsPkgs."prettyprinter" or (errorHandler.buildDepError "prettyprinter"))
-            (hsPkgs."mtl" or (errorHandler.buildDepError "mtl"))
             (hsPkgs."bytestring" or (errorHandler.buildDepError "bytestring"))
             (hsPkgs."optparse-applicative" or (errorHandler.buildDepError "optparse-applicative"))
-            (hsPkgs."serialise" or (errorHandler.buildDepError "serialise"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
-            (hsPkgs."time" or (errorHandler.buildDepError "time"))
-            (hsPkgs."lens" or (errorHandler.buildDepError "lens"))
             (hsPkgs."vector" or (errorHandler.buildDepError "vector"))
             ];
           buildable = true;
@@ -605,11 +598,12 @@
             (hsPkgs."hedgehog" or (errorHandler.buildDepError "hedgehog"))
             (hsPkgs."inline-r" or (errorHandler.buildDepError "inline-r"))
             (hsPkgs."mmorph" or (errorHandler.buildDepError "mmorph"))
+            (hsPkgs."template-haskell" or (errorHandler.buildDepError "template-haskell"))
             (hsPkgs."text" or (errorHandler.buildDepError "text"))
             (hsPkgs."vector" or (errorHandler.buildDepError "vector"))
             ];
           buildable = true;
-          modules = [ "CostModelCreation" ];
+          modules = [ "TH" "CostModelCreation" ];
           hsSourceDirs = [ "cost-model/test" "cost-model/create-cost-model" ];
           };
         "index-envs-bench" = {
@@ -627,11 +621,11 @@
       };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
-      url = "16";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       }) // {
-      url = "16";
+      url = "17";
       rev = "minimal";
       sha256 = "";
       };

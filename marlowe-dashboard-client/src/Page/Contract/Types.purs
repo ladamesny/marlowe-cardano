@@ -13,69 +13,84 @@ module Page.Contract.Types
   ) where
 
 import Prologue
+
 import Analytics (class IsEvent, defaultEvent)
-import Component.Contacts.Types (WalletDetails, WalletNickname)
+import Component.Contacts.Types (WalletDetails)
 import Data.Map (Map)
 import Data.Set (Set)
 import Data.Time.Duration (Minutes)
+import Data.WalletNickname (WalletNickname)
 import Halogen (RefLabel(..))
 import Marlowe.Execution.Types (NamedAction)
 import Marlowe.Execution.Types (State) as Execution
 import Marlowe.Extended.Metadata (MetaData)
 import Marlowe.PAB (PlutusAppId)
-import Marlowe.Semantics (Accounts, ChoiceId, ChosenNum, MarloweParams, Party, Payment, Slot, TransactionInput)
+import Marlowe.Semantics
+  ( Accounts
+  , ChoiceId
+  , ChosenNum
+  , MarloweParams
+  , Party
+  , Payment
+  , Slot
+  , TransactionInput
+  )
 
 data State
   = Starting StartingState
   | Started StartedState
 
-type StartingState
-  = { nickname :: String
-    , metadata :: MetaData
-    , participants :: Map Party (Maybe WalletNickname)
-    }
+type StartingState =
+  -- TODO fix primitive obsession
+  { nickname :: String
+  , metadata :: MetaData
+  , participants :: Map Party (Maybe WalletNickname)
+  }
 
-type StartedState
-  = { nickname :: String
-    , tab :: Tab -- this is the tab of the current (latest) step - previous steps have their own tabs
-    , executionState :: Execution.State
-    -- When the user submits a transaction, we save it here until we get confirmation from the PAB and
-    -- can advance the contract. This enables us to show immediate feedback to the user while we wait.
-    , pendingTransaction :: Maybe TransactionInput
-    , previousSteps :: Array PreviousStep
-    , marloweParams :: MarloweParams
-    -- Which step is selected. This index is 0 based and should be between [0, previousSteps.length]
-    -- (both sides inclusive). This is because the array represent the past steps and the
-    -- executionState has the current state and visually we can select any one of them.
-    , selectedStep :: Int
-    , metadata :: MetaData
-    , participants :: Map Party (Maybe WalletNickname)
-    -- Theser are the roles and PK's that the "logged-in" user has in this contract.
-    , userParties :: Set Party
-    -- These are the possible actions a user can make in the current step (grouped by part). We store this
-    -- mainly because extractNamedActions and expandAndGroupByRole could potentially be unperformant to compute
-    -- for every render.
-    , namedActions :: Array (Tuple Party (Array NamedAction))
-    }
+type StartedState =
+  -- TODO fix primitive obsession
+  { nickname :: String
+  , tab :: Tab -- this is the tab of the current (latest) step - previous steps have their own tabs
+  , executionState :: Execution.State
+  -- When the user submits a transaction, we save it here until we get confirmation from the PAB and
+  -- can advance the contract. This enables us to show immediate feedback to the user while we wait.
+  , pendingTransaction :: Maybe TransactionInput
+  , previousSteps :: Array PreviousStep
+  , marloweParams :: MarloweParams
+  -- Which step is selected. This index is 0 based and should be between [0, previousSteps.length]
+  -- (both sides inclusive). This is because the array represent the past steps and the
+  -- executionState has the current state and visually we can select any one of them.
+  -- TODO: fix primitive obsession - maybe a zipper is a better representation
+  -- than an index + the execution state?
+  , selectedStep :: Int
+  , metadata :: MetaData
+  , participants :: Map Party (Maybe WalletNickname)
+  -- These are the roles and PK's that the "logged-in" user has in this contract.
+  , userParties :: Set Party
+  -- These are the possible actions a user can make in the current step (grouped by part). We store this
+  -- mainly because extractNamedActions and expandAndGroupByRole could potentially be unperformant to compute
+  -- for every render.
+  , namedActions :: Array (Tuple Party (Array NamedAction))
+  }
 
-type StepBalance
-  = { atStart :: Accounts
-    , atEnd :: Maybe Accounts
-    }
+type StepBalance =
+  { atStart :: Accounts
+  , atEnd :: Maybe Accounts
+  }
 
 -- Represents a historical step in a contract's life.
-type PreviousStep
-  = { tab :: Tab
-    , expandPayments :: Boolean
-    , resultingPayments :: Array Payment
-    , balances :: StepBalance
-    , state :: PreviousStepState
-    }
+type PreviousStep =
+  { tab :: Tab
+  , expandPayments :: Boolean
+  , resultingPayments :: Array Payment
+  , balances :: StepBalance
+  , state :: PreviousStepState
+  }
 
-type TimeoutInfo
-  = { slot :: Slot
-    , missedActions :: Array (Tuple Party (Array NamedAction))
-    }
+type TimeoutInfo =
+  { slot :: Slot
+  , missedActions :: Array (Tuple Party (Array NamedAction))
+  }
 
 data PreviousStepState
   = TransactionStep TransactionInput
@@ -87,15 +102,16 @@ data Tab
 
 derive instance eqTab :: Eq Tab
 
-type Input
-  = { currentSlot :: Slot
-    , tzOffset :: Minutes
-    , walletDetails :: WalletDetails
-    , followerAppId :: PlutusAppId
-    }
+type Input =
+  { currentSlot :: Slot
+  , tzOffset :: Minutes
+  , walletDetails :: WalletDetails
+  , followerAppId :: PlutusAppId
+  }
 
 data Action
   = SelectSelf
+  -- TODO: fix primitive obsession
   | SetNickname String
   | ConfirmAction NamedAction
   | ChangeChoice ChoiceId (Maybe ChosenNum)
@@ -104,9 +120,11 @@ data Action
   | AskConfirmation NamedAction
   | CancelConfirmation
   -- The SelectStep action is what changes the model and causes the card to seem bigger.
+  -- TODO: refactor this stuff - why are there two actions?
   | SelectStep Int
   -- The MoveToStep action scrolls the step carousel so that the indicated step is at the center (without changing the model).
   | MoveToStep Int
+  -- TODO: seems like all the carousel stuff shoule be moved to a component
   | CarouselOpened
   | CarouselClosed
 

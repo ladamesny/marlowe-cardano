@@ -1,43 +1,46 @@
-module MainFrame.Types
-  ( State
-  , WebSocketStatus(..)
-  , ChildSlots
-  , Query(..)
-  , Msg(..)
-  , Action(..)
-  ) where
+module MainFrame.Types where
 
 import Prologue
+
 import Analytics (class IsEvent, defaultEvent, toEvent)
-import Component.Contacts.Types (WalletDetails, WalletLibrary)
+import Componenet.RestoreWalletForm as RestoreWalletForm
+import Component.Contacts.Types (WalletDetails)
 import Component.Expand as Expand
 import Component.LoadingSubmitButton.Types as LoadingSubmitButton
 import Component.Tooltip.Types (ReferenceId)
+import Data.AddressBook (AddressBook)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
 import Data.Time.Duration (Minutes)
 import Halogen as H
 import Halogen.Extra (LifecycleEvent)
+import Halogen.Store.Connect (Connected)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Slot)
 import Page.Contract.Types (State) as Contract
 import Page.Dashboard.Types (Action, State) as Dashboard
 import Page.Welcome.Types (Action, State) as Welcome
 import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient)
-import Toast.Types (Action, State) as Toast
+import Type.Proxy (Proxy(..))
 import Web.Socket.Event.CloseEvent (CloseEvent, reason) as WS
 import WebSocket.Support (FromSocket) as WS
+
+type Input =
+  { tzOffset :: Minutes
+  }
 
 -- The app exists in one of two main subStates: the "welcome" state for when you have
 -- no wallet, and all you can do is generate one or create a new one; and the "dashboard"
 -- state for when you have selected a wallet, and can do all of the things.
-type State
-  = { webSocketStatus :: WebSocketStatus
-    , currentSlot :: Slot
-    , tzOffset :: Minutes
-    , subState :: Either Welcome.State Dashboard.State
-    , toast :: Toast.State
-    }
+type State =
+  { addressBook :: AddressBook
+  , webSocketStatus :: WebSocketStatus
+  -- TODO: currentSlot, tzOffset, and addressBook should be stored in the global store rather than here, but in order
+  --       to remove it from here we need to first change the sub-components that use this into proper components
+  , currentSlot :: Slot
+  , tzOffset :: Minutes
+  , subState :: Either Welcome.State Dashboard.State
+  }
 
 data WebSocketStatus
   = WebSocketOpen
@@ -48,16 +51,22 @@ derive instance genericWebSocketStatus :: Generic WebSocketStatus _
 instance showWebSocketStatus :: Show WebSocketStatus where
   show WebSocketOpen = "WebSocketOpen"
   show (WebSocketClosed Nothing) = "WebSocketClosed"
-  show (WebSocketClosed (Just closeEvent)) = "WebSocketClosed " <> WS.reason closeEvent
+  show (WebSocketClosed (Just closeEvent)) = "WebSocketClosed " <> WS.reason
+    closeEvent
 
 ------------------------------------------------------------
-type ChildSlots
-  = ( tooltipSlot :: forall query. H.Slot query Void ReferenceId
-    , hintSlot :: forall query. H.Slot query Void String
-    , submitButtonSlot :: H.Slot LoadingSubmitButton.Query LoadingSubmitButton.Message String
-    , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
-    , expandSlot :: Expand.Slot Void String
-    )
+type ChildSlots =
+  ( tooltipSlot :: forall query. H.Slot query Void ReferenceId
+  , hintSlot :: forall query. H.Slot query Void String
+  , submitButtonSlot :: H.Slot LoadingSubmitButton.Query Unit String
+  , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
+  , expandSlot :: Expand.Slot Void String
+  , restoreWalletForm :: forall query. H.Slot query RestoreWalletForm.Msg Unit
+  , toaster :: forall q m. H.Slot q m Unit
+  )
+
+_toaster :: Proxy "toaster"
+_toaster = Proxy
 
 ------------------------------------------------------------
 data Query a
@@ -69,19 +78,17 @@ data Msg
 
 ------------------------------------------------------------
 data Action
-  = Init
-  | EnterWelcomeState WalletLibrary WalletDetails (Map PlutusAppId Contract.State)
-  | EnterDashboardState WalletLibrary WalletDetails
+  = EnterWelcomeState WalletDetails (Map PlutusAppId Contract.State)
+  | EnterDashboardState WalletDetails
   | WelcomeAction Welcome.Action
   | DashboardAction Dashboard.Action
-  | ToastAction Toast.Action
+  | Receive (Connected AddressBook Input)
 
 -- | Here we decide which top-level queries to track as GA events, and
 -- how to classify them.
 instance actionIsEvent :: IsEvent Action where
-  toEvent Init = Just $ defaultEvent "Init"
-  toEvent (EnterWelcomeState _ _ _) = Just $ defaultEvent "EnterWelcomeState"
-  toEvent (EnterDashboardState _ _) = Just $ defaultEvent "EnterDashboardState"
+  toEvent (EnterWelcomeState _ _) = Just $ defaultEvent "EnterWelcomeState"
+  toEvent (EnterDashboardState _) = Just $ defaultEvent "EnterDashboardState"
+  toEvent (Receive _) = Just $ defaultEvent "Receive"
   toEvent (WelcomeAction welcomeAction) = toEvent welcomeAction
   toEvent (DashboardAction dashboardAction) = toEvent dashboardAction
-  toEvent (ToastAction toastAction) = toEvent toastAction
