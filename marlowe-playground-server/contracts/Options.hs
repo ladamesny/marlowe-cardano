@@ -2,7 +2,6 @@
 module Options where
 
 import Language.Marlowe.Extended
-import PlutusTx.Builtins.Class (stringToBuiltinByteString)
 
 -- Options
 
@@ -52,8 +51,10 @@ american optionType buyer seller currency underlying ratio strike expiry =
   where
     choiceId =
       ChoiceId
-        (stringToBuiltinByteString $ "exercise " ++ show optionType)
+        (label optionType)
         buyer
+    label Call = "Exercise Call Option"
+    label Put  = "Exercise Put Option"
     transfer Call a b =
         deposit currency strike a a expiry Close
       $ deposit underlying ratio b b expiry Close
