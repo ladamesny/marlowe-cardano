@@ -90,6 +90,8 @@
           "Example"
           "Swap"
           "ZeroCouponBond"
+          "Options"
+          "CoveredCall"
           ];
         hsSourceDirs = [ "src" "contracts" ];
         };
@@ -138,7 +140,8 @@
             "CouponBondGuaranteed"
             "ZeroCouponBond"
             "Swap"
-            "Option"
+            "Options"
+            "CoveredCall"
             "ContractForDifferences"
             "ContractForDifferencesWithOracle"
             ];
@@ -162,7 +165,7 @@
             "CouponBondGuaranteed"
             "ZeroCouponBond"
             "Swap"
-            "Option"
+            "CoveredCall"
             "ContractForDifferences"
             "ContractForDifferencesWithOracle"
             ];
