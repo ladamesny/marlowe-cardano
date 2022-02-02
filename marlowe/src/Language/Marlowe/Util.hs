@@ -12,7 +12,9 @@ import Language.Marlowe.Semantics
 import Language.Marlowe.SemanticsTypes
 import Ledger (Slot (..))
 import Ledger.Ada (adaSymbol, adaToken)
+import Ledger.Scripts (dataHash)
 import qualified Ledger.Value as Val
+import qualified PlutusTx
 import qualified PlutusTx.Prelude as P
 
 instance IsString Party where
@@ -115,6 +117,13 @@ extractNonMerkleizedContractRoles = foldMapNonMerkleizedContract extract extract
 
     fromPayee (Party party)   = fromParty party
     fromPayee (Account party) = fromParty party
+
+
+merkleizedCase :: Action -> Contract -> Case Contract
+merkleizedCase action continuation = let
+    hash = dataHash (PlutusTx.toBuiltinData continuation)
+    in MerkleizedCase action hash
+
 
 advanceTillWhenAndThen :: Contract -> (Contract -> Contract) -> Contract
 advanceTillWhenAndThen Close f                      = f Close

@@ -3,8 +3,9 @@ module MainFrame.Types where
 import Prologue
 
 import Analytics (class IsEvent, defaultEvent, toEvent)
-import Componenet.RestoreWalletForm as RestoreWalletForm
+import Component.Contacts.Types (Action) as Contacts
 import Component.Contacts.Types (WalletDetails)
+import Component.ContractSetupForm as ContractSetup
 import Component.Expand as Expand
 import Component.LoadingSubmitButton.Types as LoadingSubmitButton
 import Component.Tooltip.Types (ReferenceId)
@@ -12,6 +13,7 @@ import Data.AddressBook (AddressBook)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
 import Data.Time.Duration (Minutes)
+import Halogen (SubscriptionId)
 import Halogen as H
 import Halogen.Extra (LifecycleEvent)
 import Halogen.Store.Connect (Connected)
@@ -24,6 +26,11 @@ import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient)
 import Type.Proxy (Proxy(..))
 import Web.Socket.Event.CloseEvent (CloseEvent, reason) as WS
 import WebSocket.Support (FromSocket) as WS
+
+type Slice =
+  { addressBook :: AddressBook
+  , wallet :: Maybe WalletDetails
+  }
 
 type Input =
   { tzOffset :: Minutes
@@ -39,7 +46,12 @@ type State =
   --       to remove it from here we need to first change the sub-components that use this into proper components
   , currentSlot :: Slot
   , tzOffset :: Minutes
-  , subState :: Either Welcome.State Dashboard.State
+  -- TODO clean this mess up by making Welcome and Dashboard proper components.
+  , subState ::
+      Either
+        (Tuple (Maybe WalletDetails) Welcome.State)
+        (Tuple WalletDetails Dashboard.State)
+  , pollingSubscription :: Maybe SubscriptionId
   }
 
 data WebSocketStatus
@@ -56,13 +68,15 @@ instance showWebSocketStatus :: Show WebSocketStatus where
 
 ------------------------------------------------------------
 type ChildSlots =
-  ( tooltipSlot :: forall query. H.Slot query Void ReferenceId
+  ( addContactForm :: forall query. H.Slot query Contacts.Action Unit
+  , tooltipSlot :: forall query. H.Slot query Void ReferenceId
   , hintSlot :: forall query. H.Slot query Void String
   , submitButtonSlot :: H.Slot LoadingSubmitButton.Query Unit String
   , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
   , expandSlot :: Expand.Slot Void String
-  , restoreWalletForm :: forall query. H.Slot query RestoreWalletForm.Msg Unit
+  , restoreWalletForm :: forall query. H.Slot query Welcome.Action Unit
   , toaster :: forall q m. H.Slot q m Unit
+  , contractSetup :: forall q. H.Slot q ContractSetup.Msg Unit
   )
 
 _toaster :: Proxy "toaster"
@@ -82,7 +96,9 @@ data Action
   | EnterDashboardState WalletDetails
   | WelcomeAction Welcome.Action
   | DashboardAction Dashboard.Action
-  | Receive (Connected AddressBook Input)
+  | Receive (Connected Slice Input)
+  | Init
+  | OnPoll WalletDetails
 
 -- | Here we decide which top-level queries to track as GA events, and
 -- how to classify them.
@@ -90,5 +106,7 @@ instance actionIsEvent :: IsEvent Action where
   toEvent (EnterWelcomeState _ _) = Just $ defaultEvent "EnterWelcomeState"
   toEvent (EnterDashboardState _) = Just $ defaultEvent "EnterDashboardState"
   toEvent (Receive _) = Just $ defaultEvent "Receive"
+  toEvent Init = Just $ defaultEvent "Init"
+  toEvent (OnPoll _) = Nothing
   toEvent (WelcomeAction welcomeAction) = toEvent welcomeAction
   toEvent (DashboardAction dashboardAction) = toEvent dashboardAction

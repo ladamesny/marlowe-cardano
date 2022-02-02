@@ -2,189 +2,292 @@ module Forms where
 
 import Prologue hiding (div)
 
-import Component.Input.View as Input
-import Component.Label.View as Label
-import Control.Monad.Trans.Class (lift)
+import Component.FormInput as Input
+import Control.Alternative (guard)
 import Css as Css
-import Data.Filterable (filter)
-import Data.Generic.Rep (class Generic)
-import Data.Maybe (fromMaybe, isJust, maybe)
-import Data.MnemonicPhrase
-  ( class CheckMnemonic
-  , MnemonicPhrase
-  , MnemonicPhraseError
-  )
+import DOM.HTML.Indexed (HTMLinput)
+import Data.Address (Address)
+import Data.Address (AddressError(..), validator) as A
+import Data.Array as Array
+import Data.BigInt.Argonaut as BigInt
+import Data.Int as Int
+import Data.Maybe (fromMaybe, maybe)
+import Data.MnemonicPhrase (MnemonicPhrase)
 import Data.MnemonicPhrase as MP
 import Data.Set (Set)
-import Data.Show.Generic (genericShow)
-import Data.Validation.Semigroup (V(..))
+import Data.String (Pattern(..), trim)
+import Data.String as String
+import Data.String.Extra (leftPadTo, rightPadTo)
 import Data.WalletNickname (WalletNickname)
 import Data.WalletNickname as WN
-import Halogen as H
+import Effect.Class (class MonadEffect)
 import Halogen.Css (classNames)
-import Halogen.Form (Form)
+import Halogen.Form (Form, FormHTML)
 import Halogen.Form as Form
-import Halogen.Form.FormM (uniqueId, update)
+import Halogen.Form.FormM (FormM)
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import Halogen.Hooks as Hooks
-import Network.RemoteData (RemoteData(..), fromEither)
-import Polyform (Validator)
-import Polyform.Validator as Validator
+import Network.RemoteData (RemoteData(..))
 import Type.Proxy (Proxy(..))
 
-data AsyncInput i e a = AsyncInput i (RemoteData e a)
-
-derive instance eqAsyncInput :: (Eq i, Eq e, Eq a) => Eq (AsyncInput i e a)
-derive instance genericAsyncInput :: Generic (AsyncInput i e a) _
-derive instance functorAsyncInput :: Functor (AsyncInput i e)
-instance showAsyncInput :: (Show i, Show e, Show a) => Show (AsyncInput i e a) where
-  show = genericShow
-
-type InputSlots slots =
-  (input :: forall query. H.Slot query String String | slots)
+type InputSlots pa slots =
+  (input :: Input.Slot pa String | slots)
 
 _input :: Proxy "input"
 _input = Proxy
 
-inputComponent
-  :: forall q m
-   . H.Component
-       q
-       { error :: Maybe String
-       , id :: String
-       , label :: String
-       , value :: String
-       }
-       String
-       m
-inputComponent =
-  Hooks.component \{ outputToken } { value, id, label, error } -> Hooks.do
-    Tuple pristine pristineId <- Hooks.useState true
-    let error' = filter (\_ -> not pristine) error
-    Hooks.pure do
-      HH.div [ classNames [ "relative" ] ]
-        [ Input.renderWithChildren
-            Input.defaultInput
-              { value = value
-              , onChange = Just \value' -> do
-                  Hooks.put pristineId false
-                  Hooks.raise outputToken value'
-              , invalid = isJust error'
-              , id = id
-              }
-            \i ->
-              [ Label.render Label.defaultInput
-                  { for = id
-                  , text = label
-                  }
-              , i
-              ]
-        , HH.label
-            [ classNames
-                $ Css.inputError <> maybe [ "invisible" ] (const []) error'
-            , HP.for id
-            ]
-            [ HH.text $ fromMaybe "Valid" error ]
-        ]
+renderLabel :: forall w i. String -> String -> HH.HTML w i
+renderLabel id label =
+  HH.label [ classNames $ Css.labelBox <> Css.labelText, HP.for id ]
+    [ HH.text label ]
+
+renderErrorLabel :: forall w i. String -> Maybe String -> HH.HTML w i
+renderErrorLabel id error = HH.label
+  [ classNames $ Css.inputError <> maybe [ "invisible" ] (const []) error
+  , HP.for id
+  ]
+  [ HH.text $ fromMaybe "Valid" error ]
+
+renderInputBox
+  :: forall w error i. Maybe error -> Array (HH.HTML w i) -> HH.HTML w i
+renderInputBox error =
+  HH.div [ classNames $ Css.inputBox error ]
+
+renderInput
+  :: forall w pa slots m
+   . String
+  -> Input.State
+  -> Array (HP.IProp HTMLinput (Input.Action pa slots m))
+  -> HH.HTML w (Input.Action pa slots m)
+renderInput id { value } props = HH.input
+  ( Input.setInputProps value $ props <> [ HP.id id, classNames Css.inputText ]
+  )
+
+mountInput
+  :: forall pa slots m
+   . MonadEffect m
+  => { format :: String -> String
+     , id :: String
+     , value :: String
+     }
+  -> (Input.State -> Input.ComponentHTML pa slots m)
+  -> Form.ComponentHTML pa String (InputSlots pa slots) m
+mountInput { id, value, format } render =
+  HH.slot _input id Input.component { value, render, format } $
+    case _ of
+      Input.Updated newValue -> Form.update newValue
+      Input.Emit pa -> Form.raise pa
+      _ -> Form.ignore
 
 inputAsync
-  :: forall s m e a
-   . Monad m
+  :: forall pa s m e a
+   . MonadEffect m
   => String
   -> String
-  -> Validator m e String a
   -> (e -> String)
-  -> Form (InputSlots s) m (AsyncInput String e a) a
-inputAsync baseId label validator renderError =
-  Form.form \(AsyncInput value remote) -> do
-    remote' <- case remote of
-      NotAsked -> do
-        case value of
-          "" -> pure $ NotAsked
-          _ -> do
-            update (AsyncInput value Loading)
-            V result <- lift $ Validator.runValidator validator value
-            let newRemote = fromEither result
-            update (AsyncInput value newRemote)
-            pure newRemote
-      r -> pure r
-    case remote' of
-      Loading ->
-        mkResult value Nothing $ Just "Checking..."
-      Failure e ->
-        mkResult value Nothing $ Just $ renderError e
-      NotAsked ->
-        mkResult value Nothing Nothing
-      Success a ->
-        mkResult value (Just a) Nothing
+  -> String
+  -> RemoteData e a
+  -> FormM String m (FormHTML pa String (InputSlots pa s) m)
+inputAsync id label renderError value remote = pure
+  [ mountInput { id, value, format: identity } \state ->
+      let
+        error = guard (not state.pristine && state.visited) *> case remote of
+          Loading ->
+            Just "Checking..."
+          Failure e ->
+            Just $ renderError e
+          NotAsked ->
+            Nothing
+          Success _ ->
+            Nothing
+      in
+        HH.div [ classNames [ "relative" ] ]
+          [ renderLabel id label
+          , renderInputBox error [ renderInput id state [] ]
+          , renderErrorLabel id error
+          ]
+  ]
 
-  where
-  mkResult value output error = do
-    id <- uniqueId baseId
-    let
-      componentInput =
-        { value
-        , id
-        , label
-        , error
-        }
-    pure $ Tuple output
-      [ HH.slot
-          _input
-          id
-          inputComponent
-          componentInput
-          \value' -> AsyncInput value' NotAsked
-      ]
+intInput
+  :: forall pa s m e a
+   . MonadEffect m
+  => String
+  -> String
+  -> (e -> String)
+  -> String
+  -> Either e a
+  -> FormM String m (FormHTML pa String (InputSlots pa s) m)
+intInput id label renderError value result = pure
+  [ mountInput { id, value, format: formatInt } \state ->
+      let
+        error = guard (not state.pristine && state.visited) *> case result of
+          Left e ->
+            Just $ renderError e
+          Right _ ->
+            Nothing
+      in
+        HH.div [ classNames [ "relative" ] ]
+          [ renderLabel id label
+          , renderInputBox error
+              [ renderInput id state [ HP.type_ HP.InputNumber ]
+              ]
+          , renderErrorLabel id error
+          ]
+  ]
+
+formatInt :: String -> String
+formatInt s = case BigInt.fromString $ trim s of
+  Nothing -> s
+  Just n -> BigInt.toString n
+
+adaInput
+  :: forall pa s m e a
+   . MonadEffect m
+  => String
+  -> String
+  -> (e -> String)
+  -> String
+  -> Either e a
+  -> FormM String m (FormHTML pa String (InputSlots pa s) m)
+adaInput id label renderError value result = pure
+  [ mountInput { id, value, format: formatCurrency 6 } \state ->
+      let
+        error = guard (not state.pristine && state.visited) *> case result of
+          Left e ->
+            Just $ renderError e
+          Right _ ->
+            Nothing
+      in
+        HH.div [ classNames [ "relative" ] ]
+          [ renderLabel id label
+          , renderInputBox error
+              [ HH.span_ [ HH.text "₳" ]
+              , renderInput id state [ HP.type_ HP.InputNumber ]
+              ]
+          , renderErrorLabel id error
+          ]
+  ]
+
+formatCurrency :: Int -> String -> String
+formatCurrency decimals s =
+  let
+    { isNegative, absoluteValue } =
+      if String.take 1 s == "-" then
+        { isNegative: true, absoluteValue: String.drop 1 s }
+      else
+        { isNegative: false, absoluteValue: s }
+
+    valueBits = Array.take 2 $ String.split (Pattern ".") absoluteValue
+
+    decimalString =
+      if absoluteValue == "" then "0" else fromMaybe "0" $ Array.head valueBits
+
+    fractionalString =
+      if Array.length valueBits < 2 then "0"
+      else fromMaybe "0" $ Array.last valueBits
+
+    -- if zeros have been deleted from the end of the string, the fractional part will be wrong
+    correctedFractionalString = String.take decimals $ rightPadTo decimals "0"
+      fractionalString
+
+    multiplier = BigInt.fromInt $ Int.pow 10 decimals
+
+    dec = fromMaybe zero $ BigInt.fromString decimalString
+
+    frac = fromMaybe zero $ BigInt.fromString $ String.take decimals $
+      correctedFractionalString
+    value =
+      if isNegative then
+        -((dec * multiplier) + frac)
+      else
+        (dec * multiplier) + frac
+    string =
+      if value < zero then
+        "-" <>
+          (leftPadTo decimals "0" $ String.drop 1 $ BigInt.toString value)
+      else
+        leftPadTo decimals "0" $ BigInt.toString value
+
+    len = String.length string
+
+    { after: fractionalString, before } = String.splitAt (len - decimals)
+      string
+
+    decimalString = case before of
+      "" -> "0"
+      "-" -> "-0"
+      _ -> before
+  in
+    if decimals == 0 then
+      decimalString
+    else
+      decimalString <> "." <> fractionalString
 
 input
-  :: forall s m e a
-   . Monad m
+  :: forall pa s m e a
+   . MonadEffect m
   => String
   -> String
-  -> Validator m e String a
   -> (e -> String)
-  -> Form (InputSlots s) m String a
-input baseId label validator renderError = Form.form \value -> do
-  V result <- lift $ Validator.runValidator validator value
-  case result of
-    Left e ->
-      mkResult value Nothing $ Just $ renderError e
-    Right a ->
-      mkResult value (Just a) Nothing
-  where
-  mkResult value output error = do
-    id <- uniqueId baseId
-    let
-      componentInput =
-        { value
-        , id
-        , label
-        , error
-        }
-    pure $ Tuple output
-      [ HH.slot _input id inputComponent componentInput identity ]
+  -> String
+  -> Either e a
+  -> FormM String m (FormHTML pa String (InputSlots pa s) m)
+input id label renderError value result = pure
+  [ mountInput { id, value, format: identity } \state ->
+      let
+        error = guard (not state.pristine && state.visited) *> case result of
+          Left e ->
+            Just $ renderError e
+          Right _ ->
+            Nothing
+      in
+        HH.div [ classNames [ "relative" ] ]
+          [ renderLabel id label
+          , renderInputBox error [ renderInput id state [] ]
+          , renderErrorLabel id error
+          ]
+  ]
 
 walletNickname
-  :: forall s m
-   . Monad m
+  :: forall pa s m
+   . MonadEffect m
   => Set WalletNickname
-  -> Form (InputSlots s) m String WalletNickname
+  -> Form pa (InputSlots pa s) m String WalletNickname
 walletNickname used =
-  input "wallet-nickname" "Wallet nickname" (WN.validator used) case _ of
-    WN.Empty -> "Required."
-    WN.Exists -> "Already exists."
-    WN.ContainsNonAlphaNumeric -> "Can only contain letters and digits."
+  Form.mkForm
+    { validator: WN.validatorExclusive used
+    , render: input "wallet-nickname" "Wallet nickname" case _ of
+        WN.Empty -> "Required."
+        WN.Exists -> "Already exists."
+        WN.DoesNotExist -> "Not found."
+        WN.ContainsNonAlphaNumeric -> "Can only contain letters and digits."
+    }
 
-type MnemonicPhraseInput = AsyncInput String MnemonicPhraseError MnemonicPhrase
+-- type MnemonicPhraseInput = Input String MnemonicPhraseError MnemonicPhrase
 
 mnemonicPhrase
-  :: forall s m
-   . CheckMnemonic m
-  => Form (InputSlots s) m MnemonicPhraseInput MnemonicPhrase
+  :: forall pa s m
+   . MonadEffect m
+  => Form pa (InputSlots pa s) m String MnemonicPhrase
 mnemonicPhrase =
-  inputAsync "wallet-mnemonic" "Mnemonic phrase" MP.validator case _ of
-    MP.Empty -> "Required."
-    MP.WrongWordCount -> "24 words required."
-    MP.ContainsInvalidWords -> "Mnemonic phrase contains invalid words."
+  Form.mkForm
+    { validator: MP.validator
+    , render: input "wallet-mnemonic" "Mnemonic phrase" case _ of
+        MP.Empty -> "Required."
+        MP.WrongWordCount -> "24 words required."
+        MP.ContainsInvalidWords -> "Mnemonic phrase contains invalid words."
+    }
+
+address
+  :: forall pa s m
+   . MonadEffect m
+  => Set Address
+  -> Form pa (InputSlots pa s) m String Address
+address used =
+  Form.mkForm
+    { validator: A.validator used
+    , render: input "address" "Address" case _ of
+        A.Empty -> "Required."
+        A.Invalid -> "Provided address is not a valid pubkeyhash."
+        A.Exists -> "Already exists."
+    }
